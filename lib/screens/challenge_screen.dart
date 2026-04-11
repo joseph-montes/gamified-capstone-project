@@ -220,10 +220,26 @@ class _ChallengeScreenState extends State<ChallengeScreen>
     }
   }
 
+  // ── Coin helpers ──────────────────────────
+  /// Returns the coin reward for the current challenge difficulty.
+  int get _coinRewardForDifficulty {
+    switch (widget.challenge.difficulty.toLowerCase()) {
+      case 'hard':
+        return 20;
+      case 'medium':
+        return 10;
+      case 'easy':
+      default:
+        return 5;
+    }
+  }
+
   Future<void> _finish() async {
     final bool passed = _score / _total > 0.6;
     List<String> newBadges = [];
     bool wasNewCompletion = false;
+    int coinsEarned = 0;
+    bool lessonUnlocked = false;
 
     if (context.mounted) {
       final user = context.read<UserModel>();
@@ -262,6 +278,44 @@ class _ChallengeScreenState extends State<ChallengeScreen>
               xpAmount: widget.challenge.xpReward,
             );
             newBadges = await db.checkAndUnlockBadges(userModel: user);
+
+            // ── COIN REWARD (first-time pass only) ──────────────────────
+            coinsEarned = _coinRewardForDifficulty;
+            await db.awardCoins(userModel: user, coinAmount: coinsEarned);
+
+            // ── LESSON PROGRESSION ───────────────────────────────────────
+            final categoryPrefix = widget.challenge.id.split('_').first;
+            final allIds =
+                Challenge.allChallenges().map((c) => c.id).toList();
+            lessonUnlocked = await db.checkAndIncrementLesson(
+              userModel: user,
+              categoryPrefix: categoryPrefix,
+              allChallengeIds: allIds,
+            );
+
+            if (lessonUnlocked && mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Text('🎓', style: TextStyle(fontSize: 20)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Lesson Complete! All ${categoryPrefix.toUpperCase()} challenges cleared!',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                  backgroundColor: const Color(0xFF8A38F5),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+            }
           } else {
             // Firebase says already completed but local lock was missing.
             // Write local lock now to prevent future issues, save no XP.
@@ -284,6 +338,7 @@ class _ChallengeScreenState extends State<ChallengeScreen>
         passed: passed,
         newBadges: newBadges,
         isPracticeRun: passed && !wasNewCompletion,
+        coinsEarned: coinsEarned,
       );
     }
   }
@@ -292,10 +347,53 @@ class _ChallengeScreenState extends State<ChallengeScreen>
     required bool passed,
     List<String> newBadges = const [],
     bool isPracticeRun = false,
+    int coinsEarned = 0,
   }) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final user = context.read<UserModel>();
     final allChallenges = widget.challenge.findNextChallenge(user);
+
+    // ── FAILURE BUY-IN DIALOG ─────────────────────────
+    // If the user failed AND the challenge is not yet completed (not review mode),
+    // offer an immediate retake for a 10-coin buy-in.
+    if (!passed && !user.completedChallengeIds.contains(widget.challenge.id)) {
+      final retake = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => _BuyInDialog(
+          challenge: widget.challenge,
+          isDark: isDark,
+          userCoins: user.coins,
+        ),
+      );
+
+      if (retake == true && context.mounted) {
+        final db = context.read<DatabaseService>();
+        final spent = await db.spendCoins(userModel: user, cost: 10);
+        if (spent && mounted) {
+          // Replace current route with a fresh challenge screen
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => ChallengeScreen(challenge: widget.challenge),
+            ),
+          );
+          return;
+        } else if (mounted) {
+          // Coins ran out between dialog display and tap (race condition guard)
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Not enough coins to retry!'),
+              backgroundColor: const Color(0xFFFF3D71),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+            ),
+          );
+        }
+      }
+      // User chose not to retake — fall through to normal failure result dialog
+      if (!context.mounted) return;
+    }
 
     await showDialog(
       context: context,
@@ -305,6 +403,7 @@ class _ChallengeScreenState extends State<ChallengeScreen>
         score: _score,
         total: _total,
         xpReward: passed && !isPracticeRun ? widget.challenge.xpReward : 0,
+        coinsEarned: coinsEarned,
         isDark: isDark,
         newBadges: newBadges,
         nextChallenge: allChallenges,
@@ -862,6 +961,7 @@ class _ResultDialog extends StatelessWidget {
   final int score;
   final int total;
   final int xpReward;
+  final int coinsEarned; // 0 in review/practice mode
   final bool isDark;
   final VoidCallback onDismiss;
   final VoidCallback? onNextChallenge;
@@ -880,6 +980,7 @@ class _ResultDialog extends StatelessWidget {
     this.newBadges = const [],
     this.nextChallenge,
     this.isPracticeRun = false,
+    this.coinsEarned = 0,
   });
 
   static const Map<String, String> _badgeNames = {
@@ -914,10 +1015,10 @@ class _ResultDialog extends StatelessWidget {
             : 'Challenge Passed!';
 
     final String subtitle = !passed
-        ? 'You need > 60% to earn XP. Keep practising!'
+        ? 'You need > 60% to pass. Spend 10 coins to retry immediately!'
         : isPracticeRun
-            ? 'Great effort! This was a practice run — XP was already earned on your first completion.'
-            : 'Great work! You earned XP for this challenge.';
+            ? 'Great effort! This was a practice run — XP & coins are earned only on first completion.'
+            : 'Great work! You earned XP and coins for this challenge!';
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -1000,13 +1101,20 @@ class _ResultDialog extends StatelessWidget {
                   isDark: isDark,
                   accentColor: accentColor,
                 ).animate(delay: 300.ms).slideY(begin: 0.1).fadeIn(),
-                // XP row — only shown on genuine first-time pass
+                // XP row and Coin row — only shown on genuine first-time pass
                 if (passed && !isPracticeRun) ...[
                   const SizedBox(height: 10),
                   _XpRow(xp: xpReward)
                       .animate(delay: 380.ms)
                       .slideY(begin: 0.1)
                       .fadeIn(),
+                  if (coinsEarned > 0) ...[
+                    const SizedBox(height: 8),
+                    _CoinRow(coins: coinsEarned)
+                        .animate(delay: 410.ms)
+                        .slideY(begin: 0.1)
+                        .fadeIn(),
+                  ],
                 ],
                 // Practice-run info banner
                 if (isPracticeRun) ...[
@@ -1274,6 +1382,212 @@ class _BadgesUnlockedRow extends StatelessWidget {
             }).toList(),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  _CoinRow
+//  Gold-themed reward row shown in the result dialog.
+// ─────────────────────────────────────────────
+class _CoinRow extends StatelessWidget {
+  final int coins;
+  const _CoinRow({required this.coins});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFD700).withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFFD700).withOpacity(0.35)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text('🪙', style: TextStyle(fontSize: 18)),
+          const SizedBox(width: 8),
+          Text(
+            '+$coins Coins Earned!',
+            style: GoogleFonts.poppins(
+              color: const Color(0xFFFFD700),
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  _BuyInDialog
+//  Shown when a user fails a not-yet-completed challenge.
+//  Offers an immediate retake for 10 coins.
+// ─────────────────────────────────────────────
+class _BuyInDialog extends StatelessWidget {
+  final Challenge challenge;
+  final bool isDark;
+  final int userCoins;
+
+  const _BuyInDialog({
+    required this.challenge,
+    required this.isDark,
+    required this.userCoins,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bool canAfford = userCoins >= 10;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppColors.bgCard.withOpacity(0.95)
+                  : Colors.white.withOpacity(0.97),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: const Color(0xFFFF3D71).withOpacity(0.5),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF3D71).withOpacity(0.2),
+                  blurRadius: 40,
+                  spreadRadius: 4,
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Icon
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF3D71).withOpacity(0.12),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: const Color(0xFFFF3D71).withOpacity(0.5),
+                        width: 2),
+                  ),
+                  child: const Center(
+                    child: Text('💸', style: TextStyle(fontSize: 34)),
+                  ),
+                )
+                    .animate(delay: 50.ms)
+                    .scale(begin: const Offset(0.6, 0.6))
+                    .fadeIn(),
+                const SizedBox(height: 16),
+                Text(
+                  'Want to Try Again?',
+                  style: GoogleFonts.poppins(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? AppColors.textPrimary : AppColors.lightText,
+                  ),
+                ).animate(delay: 120.ms).slideY(begin: 0.2).fadeIn(),
+                const SizedBox(height: 8),
+                Text(
+                  canAfford
+                      ? 'Spend 10 🪙 coins for an immediate retake of "${challenge.title}".'
+                      : 'You need 10 🪙 coins to retry immediately.\nYour balance: $userCoins coins.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: isDark ? AppColors.textSecondary : Colors.black87,
+                    height: 1.5,
+                  ),
+                ).animate(delay: 160.ms).fadeIn(),
+                const SizedBox(height: 6),
+                // Coin balance chip
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFD700).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                        color: const Color(0xFFFFD700).withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('🪙', style: TextStyle(fontSize: 14)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Your balance: $userCoins coins',
+                        style: GoogleFonts.poppins(
+                          color: const Color(0xFFFFD700),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ).animate(delay: 200.ms).fadeIn(),
+                const SizedBox(height: 22),
+                // Retry button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: canAfford
+                        ? () => Navigator.of(context).pop(true)
+                        : null,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: Text(
+                      canAfford ? 'Retry for 10 Coins' : 'Not Enough Coins',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: canAfford
+                          ? const Color(0xFFFF3D71)
+                          : Colors.grey.withOpacity(0.3),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ).animate(delay: 250.ms).slideY(begin: 0.1).fadeIn(),
+                const SizedBox(height: 10),
+                // Decline button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor:
+                          isDark ? AppColors.textSecondary : Colors.black54,
+                      side: BorderSide(
+                          color: isDark ? Colors.white24 : Colors.black12),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: Text(
+                      'No Thanks, Exit',
+                      style: GoogleFonts.poppins(
+                          fontSize: 13, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ).animate(delay: 290.ms).fadeIn(),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

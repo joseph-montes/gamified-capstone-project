@@ -46,6 +46,7 @@ class UserModel extends ChangeNotifier {
   int totalQuizzesCompleted = 0;
   List<String> earnedBadgeIds = [];
   List<String> completedChallengeIds = []; // track challenge history
+  List<String> completedLessonCategories = []; // track lesson-level completions
 
   // ── Timestamps ────────────────────────────
   DateTime? lastLoginDate;
@@ -112,6 +113,8 @@ class UserModel extends ChangeNotifier {
     earnedBadgeIds = List<String>.from(data['earnedBadgeIds'] as List? ?? []);
     completedChallengeIds =
         List<String>.from(data['completedChallengeIds'] as List? ?? []);
+    completedLessonCategories =
+        List<String>.from(data['completedLessonCategories'] as List? ?? []);
 
     final lastLoginTs = data['lastLoginDate'];
     if (lastLoginTs != null) {
@@ -146,6 +149,7 @@ class UserModel extends ChangeNotifier {
       'totalQuizzesCompleted': totalQuizzesCompleted,
       'earnedBadgeIds': earnedBadgeIds,
       'completedChallengeIds': completedChallengeIds,
+      'completedLessonCategories': completedLessonCategories,
       'lastLoginDate': lastLoginDate?.toIso8601String(),
       'createdAt': createdAt?.toIso8601String(),
       'lastPhotoChangeDate': lastPhotoChangeDate?.toIso8601String(),
@@ -180,6 +184,12 @@ class UserModel extends ChangeNotifier {
     return true;
   }
 
+  /// Adds [amount] coins and notifies listeners.
+  void addCoins(int amount) {
+    coins += amount;
+    notifyListeners();
+  }
+
   void updateStreak() {
     final now = DateTime.now();
     if (lastLoginDate == null) {
@@ -211,6 +221,16 @@ class UserModel extends ChangeNotifier {
     return true;
   }
 
+  /// Records that a lesson category has been fully completed.
+  /// Returns false if already recorded (idempotent).
+  bool markLessonCategoryComplete(String categoryPrefix) {
+    if (completedLessonCategories.contains(categoryPrefix)) return false;
+    completedLessonCategories.add(categoryPrefix);
+    totalLessonsCompleted++;
+    notifyListeners();
+    return true;
+  }
+
   void addPhotoUrl(String url) {
     photoUrl = url;
     lastPhotoChangeDate = DateTime.now();
@@ -234,6 +254,7 @@ class UserModel extends ChangeNotifier {
     totalQuizzesCompleted = 0;
     earnedBadgeIds = [];
     completedChallengeIds = [];
+    completedLessonCategories = [];
     lastLoginDate = null;
     createdAt = null;
     lastPhotoChangeDate = null;

@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'home_page.dart';
@@ -17,6 +18,49 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
+  // ── Double-tap-to-exit state ───────────────
+  DateTime? _lastBackPress;
+
+  /// Returns true when the app should exit (second back-press within 2s).
+  Future<bool> _onWillPop() async {
+    final now = DateTime.now();
+    final isSecondPress = _lastBackPress != null &&
+        now.difference(_lastBackPress!) < const Duration(seconds: 2);
+
+    if (isSecondPress) {
+      // Close snackbar before exiting
+      ScaffoldMessenger.of(context).removeCurrentSnackBar();
+      await SystemNavigator.pop();
+      return true;
+    }
+
+    _lastBackPress = now;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.exit_to_app_rounded, color: Colors.white, size: 18),
+            const SizedBox(width: 10),
+            Text(
+              'Press back again to exit',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF1E1E3A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      ),
+    );
+    return false;
+  }
+
   void _navigateTo(int index) => setState(() => _currentIndex = index);
 
   List<Widget> get _pages => [
@@ -31,7 +75,13 @@ class _MainScreenState extends State<MainScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, dynamic result) async {
+        if (didPop) return;
+        await _onWillPop();
+      },
+      child: Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: Stack(
         children: [
@@ -47,8 +97,10 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ],
       ),
-    );
+    ),   // closes Scaffold (child of PopScope)
+    );   // closes PopScope
   }
+
 
   Widget _buildGlassBottomNav(BuildContext context, bool isDark) {
     // Determine screen boundary padding (helpful for Android system buttons)

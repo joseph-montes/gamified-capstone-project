@@ -307,6 +307,61 @@ class DatabaseService {
     return gained;
   }
 
+  // ── Award Coins ────────────────────────────
+  /// Grants [coinAmount] coins to [userModel] and persists to Firestore.
+  Future<void> awardCoins(
+      {required UserModel userModel, required int coinAmount}) async {
+    userModel.addCoins(coinAmount);
+    await _firestore.collection('users').doc(userModel.uid).update({
+      'coins': userModel.coins,
+    });
+  }
+
+  // ── Spend Coins ────────────────────────────
+  /// Deducts [cost] coins from [userModel]. Returns false if insufficient.
+  Future<bool> spendCoins(
+      {required UserModel userModel, required int cost}) async {
+    final success = userModel.spendCoins(cost);
+    if (success) {
+      await _firestore.collection('users').doc(userModel.uid).update({
+        'coins': userModel.coins,
+      });
+    }
+    return success;
+  }
+
+  // ── Lesson Completion Check ────────────────
+  /// Checks if every challenge whose id starts with [categoryPrefix] has been
+  /// completed by [userModel]. If so (and this is the first time), increments
+  /// [totalLessonsCompleted] by 1 and persists it.
+  ///
+  /// Returns true when a new lesson completion was recorded.
+  Future<bool> checkAndIncrementLesson({
+    required UserModel userModel,
+    required String categoryPrefix,
+    required List<String> allChallengeIds,
+  }) async {
+    final categoryIds =
+        allChallengeIds.where((id) => id.startsWith(categoryPrefix)).toList();
+    if (categoryIds.isEmpty) return false;
+
+    final allDone = categoryIds
+        .every((id) => userModel.completedChallengeIds.contains(id));
+    if (!allDone) return false;
+
+    // Guard: only count once per category using completedLessonCategories
+    if (userModel.completedLessonCategories.contains(categoryPrefix)) {
+      return false;
+    }
+
+    userModel.markLessonCategoryComplete(categoryPrefix);
+    await _firestore.collection('users').doc(userModel.uid).update({
+      'totalLessonsCompleted': userModel.totalLessonsCompleted,
+      'completedLessonCategories': userModel.completedLessonCategories,
+    });
+    return true;
+  }
+
   // ── Auto Achievement Unlock ────────────────
   /// Evaluates all badge conditions and persists newly unlocked ones.
   Future<List<String>> checkAndUnlockBadges(
