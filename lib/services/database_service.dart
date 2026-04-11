@@ -421,6 +421,8 @@ class DatabaseService {
       'body':
           '${daily.title} • ${daily.questions.length} questions • +${daily.xpReward} XP',
       'time': 'Now',
+      'action': 'open_challenge',
+      'payload': daily.id,
     });
 
     if (user.streakDays >= 3) {
@@ -430,6 +432,8 @@ class DatabaseService {
         'title': '${user.streakDays}-Day Streak 🔥',
         'body': "Amazing! You've logged in ${user.streakDays} days in a row.",
         'time': 'Today',
+        'action': 'navigate_tab',
+        'payload': 3, // Navigate to Profile tab
       });
     }
 
@@ -440,6 +444,8 @@ class DatabaseService {
       'body':
           "You're Level ${user.level} with ${user.currentXP} XP. Keep going!",
       'time': '1h ago',
+      'action': 'navigate_tab',
+      'payload': 3, // Navigate to Profile tab
     });
 
     if (user.totalQuizzesCompleted >= 8 &&
@@ -451,6 +457,8 @@ class DatabaseService {
         'body':
             'Complete ${10 - user.totalQuizzesCompleted} more quizzes to earn "Challenge Ace".',
         'time': '2h ago',
+        'action': 'navigate_tab',
+        'payload': 3, // Navigate to Profile tab
       });
     }
 

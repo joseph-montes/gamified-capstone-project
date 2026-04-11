@@ -950,5 +950,417 @@ class Challenge {
             ),
           ],
         ),
+
+        // ── Additional 10 New Challenges ───────────────
+        const Challenge(
+          id: 'java_medium_02',
+          title: 'Java Exception Handling',
+          topic: 'Error Handling',
+          difficulty: 'Medium',
+          xpReward: 100,
+          questions: [
+            Question(
+              questionText: 'Which block always executes, regardless of an exception?',
+              options: ['try', 'catch', 'finally', 'throws'],
+              correctAnswerIndex: 2,
+            ),
+            Question(
+              questionText: 'Which keyword is used to explicitly throw an exception?',
+              options: ['try', 'catch', 'throw', 'throws'],
+              correctAnswerIndex: 2,
+            ),
+            Question(
+              questionText: 'What is the base class for all exceptions in Java?',
+              options: ['Error', 'Exception', 'Throwable', 'RuntimeException'],
+              correctAnswerIndex: 2,
+            ),
+            Question(
+              questionText: 'Which exception occurs when dividing by zero?',
+              options: ['ArithmeticException', 'NullPointerException', 'NumberFormatException', 'IllegalArgumentException'],
+              correctAnswerIndex: 0,
+            ),
+            Question(
+              questionText: 'Which keyword in a method signature indicates it might throw an exception?',
+              options: ['throw', 'throws', 'catch', 'finally'],
+              correctAnswerIndex: 1,
+            ),
+          ],
+        ),
+        const Challenge(
+          id: 'py_medium_02',
+          title: 'Dictionaries & Sets',
+          topic: 'Data Structures',
+          difficulty: 'Medium',
+          xpReward: 100,
+          questions: [
+            Question(
+              questionText: 'How do you create an empty dictionary?',
+              options: ['{}', '[]', '()', 'set()'],
+              correctAnswerIndex: 0,
+            ),
+            Question(
+              questionText: 'What method returns a copy of dictionary keys?',
+              options: ['.keys()', '.values()', '.items()', '.get()'],
+              correctAnswerIndex: 0,
+            ),
+            Question(
+              questionText: 'Which data structure does not allow duplicate values?',
+              options: ['List', 'Tuple', 'Set', 'Dictionary'],
+              correctAnswerIndex: 2,
+            ),
+            Question(
+              questionText: 'How do you add a key-value pair to a dictionary `d`?',
+              options: ['d.add(k,v)', 'd.append(k,v)', 'd[k] = v', 'd.insert(k,v)'],
+              correctAnswerIndex: 2,
+            ),
+            Question(
+              questionText: 'What is the output of `set([1, 2, 2, 3])`?',
+              options: ['[1, 2, 2, 3]', '{1, 2, 3}', '{1, 2, 2, 3}', 'Error'],
+              correctAnswerIndex: 1,
+            ),
+          ],
+        ),
+        const Challenge(
+          id: 'sql_easy_01',
+          title: 'SQL Table Basics',
+          topic: 'DDL Basics',
+          difficulty: 'Easy',
+          xpReward: 50,
+          questions: [
+            Question(
+              questionText: 'Which command creates a new table?',
+              options: ['MAKE TABLE', 'CREATE TABLE', 'ADD TABLE', 'NEW TABLE'],
+              correctAnswerIndex: 1,
+            ),
+            Question(
+              questionText: 'Which constraint ensures a column cannot have NULL values?',
+              options: ['UNIQUE', 'NOT NULL', 'PRIMARY KEY', 'CHECK'],
+              correctAnswerIndex: 1,
+            ),
+            Question(
+              questionText: 'How do you delete a whole table?',
+              options: ['DROP TABLE', 'DELETE TABLE', 'REMOVE TABLE', 'TRUNCATE TABLE'],
+              correctAnswerIndex: 0,
+            ),
+            Question(
+              questionText: 'Which command adds a new column to a table?',
+              options: ['UPDATE TABLE', 'MODIFY TABLE', 'ALTER TABLE', 'CHANGE TABLE'],
+              correctAnswerIndex: 2,
+            ),
+            Question(
+              questionText: 'What does TRUNCATE TABLE do?',
+              options: [
+                'Deletes the table structure',
+                'Deletes all rows without logging individual row deletes',
+                'Removes the last row added',
+                'Hides the table'
+              ],
+              correctAnswerIndex: 1,
+            ),
+          ],
+        ),
+        const Challenge(
+          id: 'js_hard_01',
+          title: 'Closures & Prototypes',
+          topic: 'Advanced JS',
+          difficulty: 'Hard',
+          xpReward: 200,
+          questions: [
+            Question(
+              questionText: 'What is a closure in JavaScript?',
+              options: [
+                'A function that has access to its outer function scope even after the outer function has returned',
+                'A way to close browser windows',
+                'A loop that terminates early',
+                'A private variable'
+              ],
+              correctAnswerIndex: 0,
+            ),
+            Question(
+              questionText: 'How does inheritance work in JavaScript?',
+              options: ['Class-based', 'Interface-based', 'Prototypal', 'Multiple-inheritance'],
+              correctAnswerIndex: 2,
+            ),
+            Question(
+              questionText: 'What evaluates to false in JS?',
+              options: ['"false"', '0', '[]', '{}'],
+              correctAnswerIndex: 1,
+            ),
+            Question(
+              questionText: 'What is the purpose of the `bind()` method?',
+              options: [
+                'Combines two arrays',
+                'Creates a new function that, when called, has its `this` keyword set to the provided value',
+                'Attaches an event listener',
+                'Binds a variable to a specific type'
+              ],
+              correctAnswerIndex: 1,
+            ),
+            Question(
+              questionText: 'What does `Object.create(null)` do?',
+              options: [
+                'Throws an error',
+                'Creates an empty object with a normal prototype chain',
+                'Creates an object with no prototype (no inherited properties)',
+                'Creates a null object'
+              ],
+              correctAnswerIndex: 2,
+            ),
+          ],
+        ),
+        const Challenge(
+          id: 'web_medium_01',
+          title: 'CSS Flexbox & Layouts',
+          topic: 'Advanced CSS',
+          difficulty: 'Medium',
+          xpReward: 100,
+          questions: [
+            Question(
+              questionText: 'Which property aligns flex items along the main axis?',
+              options: ['align-items', 'justify-content', 'align-content', 'flex-direction'],
+              correctAnswerIndex: 1,
+            ),
+            Question(
+              questionText: 'Which value specifies a column layout in Flexbox?',
+              options: ['flex-direction: column', 'display: column', 'flex: col', 'align: vertical'],
+              correctAnswerIndex: 0,
+            ),
+            Question(
+              questionText: 'What does `flex-grow: 1` do?',
+              options: [
+                'Allows an item to grow and fill available space',
+                'Makes text larger',
+                'Prevents an item from shrinking',
+                'Increases the flex-basis by 1px'
+              ],
+              correctAnswerIndex: 0,
+            ),
+            Question(
+              questionText: 'Which property aligns items along the cross axis?',
+              options: ['justify-content', 'align-items', 'flex-wrap', 'order'],
+              correctAnswerIndex: 1,
+            ),
+            Question(
+              questionText: 'To use Flexbox on a container, you must set:',
+              options: ['position: relative', 'display: grid', 'display: flex', 'float: left'],
+              correctAnswerIndex: 2,
+            ),
+          ],
+        ),
+        const Challenge(
+          id: 'linux_medium_01',
+          title: 'Linux File Permissions',
+          topic: 'OS & Security',
+          difficulty: 'Medium',
+          xpReward: 100,
+          questions: [
+            Question(
+              questionText: 'Which command changes file permissions?',
+              options: ['chown', 'chmod', 'chgrp', 'attrib'],
+              correctAnswerIndex: 1,
+            ),
+            Question(
+              questionText: 'What does permission `777` mean?',
+              options: [
+                'Read-only for everyone',
+                'Read, write, execute for user, read for others',
+                'Read, write, and execute for everyone',
+                'Hidden file'
+              ],
+              correctAnswerIndex: 2,
+            ),
+            Question(
+              questionText: 'Which command changes the owner of a file?',
+              options: ['chmod', 'chgrp', 'passwd', 'chown'],
+              correctAnswerIndex: 3,
+            ),
+            Question(
+              questionText: 'In `ls -l`, what does the first character `d` mean?',
+              options: ['Deleted', 'Document', 'Directory', 'Data'],
+              correctAnswerIndex: 2,
+            ),
+            Question(
+              questionText: 'Which numeric value represents write permission?',
+              options: ['1', '2', '4', '8'],
+              correctAnswerIndex: 1,
+            ),
+          ],
+        ),
+        const Challenge(
+          id: 'net_medium_01',
+          title: 'OSI Model Basics',
+          topic: 'Networking',
+          difficulty: 'Medium',
+          xpReward: 100,
+          questions: [
+            Question(
+              questionText: 'How many layers are in the OSI model?',
+              options: ['4', '5', '7', '9'],
+              correctAnswerIndex: 2,
+            ),
+            Question(
+              questionText: 'Which layer is responsible for routing?',
+              options: ['Data Link', 'Network', 'Transport', 'Application'],
+              correctAnswerIndex: 1,
+            ),
+            Question(
+              questionText: 'TCP and UDP operate at which layer?',
+              options: ['Network', 'Transport', 'Session', 'Data Link'],
+              correctAnswerIndex: 1,
+            ),
+            Question(
+              questionText: 'Which layer uses MAC addresses?',
+              options: ['Physical', 'Data Link', 'Network', 'Transport'],
+              correctAnswerIndex: 1,
+            ),
+            Question(
+              questionText: 'HTTP, FTP, and SMTP operate at which layer?',
+              options: ['Session', 'Presentation', 'Application', 'Transport'],
+              correctAnswerIndex: 2,
+            ),
+          ],
+        ),
+        const Challenge(
+          id: 'git_medium_01',
+          title: 'Branching & Merging',
+          topic: 'Advanced Git',
+          difficulty: 'Medium',
+          xpReward: 100,
+          questions: [
+            Question(
+              questionText: 'What command creates and switches to a new branch?',
+              options: ['git branch new', 'git checkout -b', 'git create branch', 'git switch new'],
+              correctAnswerIndex: 1,
+            ),
+            Question(
+              questionText: 'What is a merge conflict?',
+              options: [
+                'When git crashes',
+                'When you push to the wrong repository',
+                'When changes on different branches clash and cannot be auto-merged',
+                'When you forget your git password'
+              ],
+              correctAnswerIndex: 2,
+            ),
+            Question(
+              questionText: 'What does `git rebase` do?',
+              options: [
+                'Deletes the base branch',
+                'Moves or combines a sequence of commits to a new base commit',
+                'Undoes the last commit',
+                'Pushes all branches'
+              ],
+              correctAnswerIndex: 1,
+            ),
+            Question(
+              questionText: 'How do you list all local branches?',
+              options: ['git ls-branch', 'git show branches', 'git branch', 'git list'],
+              correctAnswerIndex: 2,
+            ),
+            Question(
+              questionText: 'What is the default main branch name in modern Git?',
+              options: ['master', 'main', 'trunk', 'root'],
+              correctAnswerIndex: 1,
+            ),
+          ],
+        ),
+        const Challenge(
+          id: 'cpp_hard_01',
+          title: 'Advanced C++ OOP',
+          topic: 'C++ OOP',
+          difficulty: 'Hard',
+          xpReward: 200,
+          questions: [
+            Question(
+              questionText: 'What is a pure virtual function?',
+              options: [
+                'A function with no return type',
+                'A function defined as virtual void func() = 0;',
+                'A function that only returns 0',
+                'A function with no arguments'
+              ],
+              correctAnswerIndex: 1,
+            ),
+            Question(
+              questionText: 'What is an abstract class in C++?',
+              options: [
+                'A class with no data members',
+                'A class with at least one pure virtual function',
+                'A class declared with the `abstract` keyword',
+                'A class with private constructors'
+              ],
+              correctAnswerIndex: 1,
+            ),
+            Question(
+              questionText: 'What is a destructor in C++?',
+              options: [
+                'Method called when object goes out of scope',
+                'Method used to delete files',
+                'Function to terminate the program',
+                'A keyword to override methods'
+              ],
+              correctAnswerIndex: 0,
+            ),
+            Question(
+              questionText: 'Which concept avoids "diamond problem" in multiple inheritance?',
+              options: ['Templates', 'Virtual inheritance', 'Abstract classes', 'Friend functions'],
+              correctAnswerIndex: 1,
+            ),
+            Question(
+              questionText: 'What does a `friend` function bypass?',
+              options: ['Syntax errors', 'Access specifiers (private/protected)', 'Compiler warnings', 'Memory limits'],
+              correctAnswerIndex: 1,
+            ),
+          ],
+        ),
+        const Challenge(
+          id: 'sec_hard_01',
+          title: 'Cryptography',
+          topic: 'InfoSec',
+          difficulty: 'Hard',
+          xpReward: 200,
+          questions: [
+            Question(
+              questionText: 'What is symmetric encryption?',
+              options: [
+                'Uses a public and private key pair',
+                'Uses the same key for encryption and decryption',
+                'Encrypts only half the data',
+                'Does not use a key'
+              ],
+              correctAnswerIndex: 1,
+            ),
+            Question(
+              questionText: 'Which algorithm is an example of asymmetric encryption?',
+              options: ['AES', 'DES', 'RSA', 'MD5'],
+              correctAnswerIndex: 2,
+            ),
+            Question(
+              questionText: 'What is the main purpose of a hashing function?',
+              options: [
+                'To compress files',
+                'To verify data integrity',
+                'To encrypt passwords for decryption later',
+                'To generate IP addresses'
+              ],
+              correctAnswerIndex: 1,
+            ),
+            Question(
+              questionText: 'Which of the following is considered cryptographically broken?',
+              options: ['SHA-256', 'AES-256', 'MD5', 'RSA-2048'],
+              correctAnswerIndex: 2,
+            ),
+            Question(
+              questionText: 'What is a salt in cryptography?',
+              options: [
+                'A weak encryption key',
+                'Random data added to a password before hashing',
+                'A way to decrypt a hash',
+                'A type of symmetric cipher'
+              ],
+              correctAnswerIndex: 1,
+            ),
+          ],
+        ),
       ];
 }

@@ -326,6 +326,8 @@ class _HomePageState extends State<HomePage> {
                         title: n['title'] as String,
                         body: n['body'] as String,
                         time: n['time'] as String,
+                        action: n['action'] as String?,
+                        payload: n['payload'],
                         isDark: isDark,
                       )
                           .animate(delay: (e.key * 60).ms)
@@ -351,12 +353,27 @@ class _HomePageState extends State<HomePage> {
     required String title,
     required String body,
     required String time,
+    String? action,
+    dynamic payload,
     required bool isDark,
   }) {
     return InkWell(
       onTap: () {
         setState(() => _notifOpen = false);
-        // Can add more navigation logic here based on title if needed
+        if (action == 'open_challenge' && payload is String) {
+          final challenge = Challenge.allChallenges().firstWhere(
+            (c) => c.id == payload,
+            orElse: () => Challenge.dummy(),
+          );
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChallengeScreen(challenge: challenge),
+            ),
+          );
+        } else if (action == 'navigate_tab' && payload is int) {
+          widget.onNavigateToTab?.call(payload);
+        }
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
