@@ -258,11 +258,21 @@ class _ChallengeScreenState extends State<ChallengeScreen>
         final xpLockKey = 'ch_xp_earned_${user.uid}_${widget.challenge.id}';
         final alreadyEarnedXPLocally = prefs.getBool(xpLockKey) ?? false;
 
-        // Always update the 24h replay cooldown timer
+        // Always update the last-run timestamp
         await prefs.setString(
           'ch_last_run_${user.uid}_${widget.challenge.id}',
           DateTime.now().toIso8601String(),
         );
+
+        // ── PERFECT SCORE FLAG ───────────────────────────────────────────
+        // Written once (and kept) when the user answers every question correctly.
+        // Used by ChallengesPage to decide between free review vs coin buy-in.
+        final perfectKey = 'ch_perfect_${user.uid}_${widget.challenge.id}';
+        final alreadyPerfect = prefs.getBool(perfectKey) ?? false;
+        if (!alreadyPerfect && _score == _total) {
+          await prefs.setBool(perfectKey, true);
+        }
+
 
         if (!alreadyEarnedXPLocally) {
           // Lock 2 check — also updates Firebase completedChallengeIds

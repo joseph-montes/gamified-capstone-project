@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../models/challenge_model.dart';
 import '../models/user_model.dart';
+import '../services/database_service.dart';
 import 'challenge_screen.dart';
 
 // ─────────────────────────────────────────────
@@ -31,22 +32,31 @@ class _ChallengesPageState extends State<ChallengesPage> {
   final List<String> _filters = ['All', 'Easy', 'Medium', 'Hard'];
 
   Map<String, DateTime> _lastRunTimes = {};
+  /// challengeId -> true means user got every question right at least once
+  Map<String, bool> _perfectFlags = {};
 
   @override
   void initState() {
     super.initState();
-    _loadRunTimes();
+    _loadLocalFlags();
   }
 
-  Future<void> _loadRunTimes() async {
+  Future<void> _loadLocalFlags() async {
     final uid = context.read<UserModel>().uid;
     final prefs = await SharedPreferences.getInstance();
-    final map = <String, DateTime>{};
+    final runMap = <String, DateTime>{};
+    final perfectMap = <String, bool>{};
     for (final c in Challenge.allChallenges()) {
-      final str = prefs.getString('ch_last_run_${uid}_${c.id}');
-      if (str != null) map[c.id] = DateTime.parse(str);
+      final runStr = prefs.getString('ch_last_run_${uid}_${c.id}');
+      if (runStr != null) runMap[c.id] = DateTime.parse(runStr);
+      perfectMap[c.id] = prefs.getBool('ch_perfect_${uid}_${c.id}') ?? false;
     }
-    if (mounted) setState(() => _lastRunTimes = map);
+    if (mounted) {
+      setState(() {
+        _lastRunTimes = runMap;
+        _perfectFlags = perfectMap;
+      });
+    }
   }
 
   // Category metadata ─────────────────────────
@@ -397,9 +407,21 @@ class _ChallengesPageState extends State<ChallengesPage> {
   Widget _buildChallengeCard(Challenge challenge, _CategoryMeta meta,
       bool isDark, int index, List<String> completedIds) {
     final isCompleted = completedIds.contains(challenge.id);
-    final lastRun = _lastRunTimes[challenge.id];
-    final canReplay = isCompleted &&
-        (lastRun == null || DateTime.now().difference(lastRun).inHours >= 24);
+    final isPerfect = _perfectFlags[challenge.id] ?? false;
+
+    // ── Coin cost for retaking a completed-but-imperfect challenge ──────
+    int retryCoinCost;
+    switch (challenge.difficulty) {
+      case 'Hard':
+        retryCoinCost = 20;
+        break;
+      case 'Medium':
+        retryCoinCost = 10;
+        break;
+      case 'Easy':
+      default:
+        retryCoinCost = 5;
+    }
 
     Color diffColor;
     IconData diffIcon;
@@ -419,20 +441,62 @@ class _ChallengesPageState extends State<ChallengesPage> {
 
     return GestureDetector(
       onTap: () async {
-        if (isCompleted && !canReplay) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('You can only retake this challenge after 24 hours.'),
-            behavior: SnackBarBehavior.floating,
-          ));
-          return;
+        if (!isCompleted) {
+          // ── Normal first attempt ─────────────────────────────────────
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChallengeScreen(challenge: challenge),
+            ),
+          );
+          _loadLocalFlags();
+        } else if (isPerfect) {
+          // ── Free review: perfect score already recorded ───────────────
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChallengeScreen(challenge: challenge),
+            ),
+          );
+          _loadLocalFlags();
+        } else {
+          // ── Coin buy-in required: completed but had wrong answers ──────
+          final user = context.read<UserModel>();
+          final confirmed = await showModalBottomSheet<bool>(
+            context: context,
+            backgroundColor: Colors.transparent,
+            isScrollControlled: true,
+            builder: (_) => _RetakeBuyInSheet(
+              challenge: challenge,
+              coinCost: retryCoinCost,
+              userCoins: user.coins,
+              isDark: isDark,
+            ),
+          );
+          if (confirmed == true && context.mounted) {
+            final db = context.read<DatabaseService>();
+            final spent = await db.spendCoins(userModel: user, cost: retryCoinCost);
+            if (spent && context.mounted) {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ChallengeScreen(challenge: challenge),
+                ),
+              );
+              _loadLocalFlags();
+            } else if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Not enough coins to retake!'),
+                  backgroundColor: const Color(0xFFFF3D71),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+              );
+            }
+          }
         }
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ChallengeScreen(challenge: challenge),
-          ),
-        );
-        _loadRunTimes();
       },
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
@@ -570,77 +634,40 @@ class _ChallengesPageState extends State<ChallengesPage> {
                         ],
                       ),
                     ),
-                    // XP + Arrow
+                    // Status column (right side)
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isCompleted
-                                ? const Color(0xFF00C853).withOpacity(0.08)
-                                : const Color(0xFFFFD700).withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: isCompleted
-                                  ? const Color(0xFF00C853).withOpacity(0.3)
-                                  : const Color(0xFFFFD700).withOpacity(0.4),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Only show XP icon (bolt) for uncompleted; no check icon for completed
-                              if (!isCompleted)
-                                Icon(
-                                  Icons.bolt_rounded,
-                                  color: const Color(0xFFFFD700),
-                                  size: 13,
-                                ),
-                              if (!isCompleted) const SizedBox(width: 2),
-                              Text(
-                                isCompleted
-                                    ? 'Earned'
-                                    : '+${challenge.xpReward}',
-                                style: GoogleFonts.poppins(
-                                  color: isCompleted
-                                      ? const Color(0xFF00C853)
-                                      : const Color(0xFFFFD700),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        // Bottom-right: show 24h countdown when locked, replay when available
-                        if (isCompleted && !canReplay && lastRun != null)
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Icon(Icons.lock_clock_rounded,
-                                  color: Colors.grey.withOpacity(0.6), size: 14),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${(24 - DateTime.now().difference(lastRun!).inHours).clamp(1, 24)}h',
-                                style: GoogleFonts.poppins(
-                                    color: Colors.grey, fontSize: 9),
-                              ),
-                            ],
+                        // Top chip: XP for uncompleted / Perfect for perfect / Coin cost for imperfect
+                        if (!isCompleted)
+                          _statusChip(
+                            label: '+${challenge.xpReward} XP',
+                            icon: Icons.bolt_rounded,
+                            color: const Color(0xFFFFD700),
+                          )
+                        else if (isPerfect)
+                          _statusChip(
+                            label: '🎯 Perfect',
+                            color: const Color(0xFF00C853),
                           )
                         else
-                          Icon(
-                            isCompleted
-                                ? Icons.replay_rounded
-                                : Icons.arrow_forward_ios_rounded,
-                            color: isCompleted
-                                ? const Color(0xFF00C853).withOpacity(0.6)
-                                : meta.color.withOpacity(0.6),
-                            size: 14,
+                          _statusChip(
+                            label: '🪙 $retryCoinCost coins',
+                            color: const Color(0xFFFFBD2E),
                           ),
+                        const SizedBox(height: 8),
+                        // Bottom arrow / replay icon
+                        Icon(
+                          isCompleted
+                              ? Icons.replay_rounded
+                              : Icons.arrow_forward_ios_rounded,
+                          color: isCompleted
+                              ? (isPerfect
+                                  ? const Color(0xFF00C853).withOpacity(0.7)
+                                  : const Color(0xFFFFBD2E).withOpacity(0.7))
+                              : meta.color.withOpacity(0.6),
+                          size: 14,
+                        ),
                       ],
                     ),
                   ],
@@ -654,6 +681,39 @@ class _ChallengesPageState extends State<ChallengesPage> {
         .animate(delay: (index * 50).ms)
         .fadeIn(duration: 400.ms)
         .slideY(begin: 0.05);
+  }
+
+  // Small reusable status chip
+  Widget _statusChip({
+    required String label,
+    IconData? icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, color: color, size: 12),
+            const SizedBox(width: 3),
+          ],
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── Empty state ───────────────────────────
@@ -695,4 +755,204 @@ class _CategoryMeta {
 
   const _CategoryMeta(
       {required this.icon, required this.color, required this.tag});
+}
+
+// ─────────────────────────────────────────────
+//  _RetakeBuyInSheet
+//  Modal bottom sheet shown when a user taps a
+//  completed-but-imperfect challenge, asking them
+//  to spend coins for a retake.
+// ─────────────────────────────────────────────
+class _RetakeBuyInSheet extends StatelessWidget {
+  final Challenge challenge;
+  final int coinCost;
+  final int userCoins;
+  final bool isDark;
+
+  const _RetakeBuyInSheet({
+    required this.challenge,
+    required this.coinCost,
+    required this.userCoins,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bool canAfford = userCoins >= coinCost;
+    final Color accentColor =
+        canAfford ? const Color(0xFFFFBD2E) : const Color(0xFFFF3D71);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF13132A).withOpacity(0.98)
+            : Colors.white.withOpacity(0.98),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: accentColor.withOpacity(0.4), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: accentColor.withOpacity(0.15),
+            blurRadius: 30,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white24 : Colors.black12,
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          // Icon
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.12),
+              shape: BoxShape.circle,
+              border:
+                  Border.all(color: accentColor.withOpacity(0.5), width: 2),
+            ),
+            child: Center(
+              child: Text(
+                canAfford ? '🔄' : '💸',
+                style: const TextStyle(fontSize: 30),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            canAfford ? 'Retake Challenge?' : 'Not Enough Coins',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : AppColors.lightText,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            challenge.title,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: isDark ? Colors.white60 : Colors.black54,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Cost & balance row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _infoChip('Cost', '🪙 $coinCost', accentColor),
+              const SizedBox(width: 12),
+              _infoChip(
+                  'Your Balance', '🪙 $userCoins',
+                  canAfford
+                      ? const Color(0xFF00C853)
+                      : const Color(0xFFFF3D71)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (!canAfford) ...[
+            const SizedBox(height: 4),
+            Text(
+              'You need ${coinCost - userCoins} more coins to retry this challenge.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                color: const Color(0xFFFF3D71),
+              ),
+            ),
+          ],
+          const SizedBox(height: 20),
+          // Confirm button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed:
+                  canAfford ? () => Navigator.of(context).pop(true) : null,
+              icon: Icon(
+                  canAfford ? Icons.play_arrow_rounded : Icons.block_rounded),
+              label: Text(
+                canAfford
+                    ? 'Spend $coinCost Coins & Retake'
+                    : 'Insufficient Coins',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: canAfford
+                    ? const Color(0xFFFFBD2E)
+                    : Colors.grey.withOpacity(0.3),
+                foregroundColor:
+                    canAfford ? Colors.black87 : Colors.grey,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Cancel button
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              style: OutlinedButton.styleFrom(
+                foregroundColor:
+                    isDark ? Colors.white54 : Colors.black54,
+                side: BorderSide(
+                    color: isDark ? Colors.white12 : Colors.black12),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(
+                    fontSize: 13, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoChip(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey),
+        ),
+        Container(
+          margin: const EdgeInsets.only(top: 4),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withOpacity(0.35)),
+          ),
+          child: Text(
+            value,
+            style: GoogleFonts.poppins(
+              color: color,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
