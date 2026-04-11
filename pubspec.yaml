@@ -1,0 +1,54 @@
+name: gamified_learning_app
+description: A gamified learning system mobile application.
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI & Fonts
+  google_fonts: ^6.2.1
+  cupertino_icons: ^1.0.6
+  flutter_animate: ^4.5.0
+  percent_indicator: ^4.2.3
+
+  # State Management
+  provider: ^6.1.2
+
+  # Firebase & Auth
+  firebase_core: any
+  firebase_auth: any
+  cloud_firestore: any
+  google_sign_in: 6.2.1
+  
+  # Storage
+  shared_preferences: ^2.2.3
+  flutter_launcher_icons: ^0.14.4
+
+  # Image Picker & Storage
+  image_picker: ^1.1.2
+  firebase_storage: any
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/animations/
+    - assets/icons/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icons/app_icon.png"
+  min_sdk_android: 21
